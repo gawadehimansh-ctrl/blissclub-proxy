@@ -5,6 +5,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// API key auth — exempt /health for Railway health checks
+app.use((req, res, next) => {
+  if (req.path === '/health') return next();
+  const key = req.headers['x-api-key'];
+  if (!key || key !== process.env.BLISSCLUB_API_KEY) return res.status(403).json({ ok: false, error: 'Forbidden' });
+  next();
+});
+
 const WINDSOR_API_KEY = process.env.WINDSOR_API_KEY;
 const WINDSOR_BASE = 'https://connectors.windsor.ai/';
 
@@ -29,7 +37,6 @@ async function windsorFetch(connector, fields, params = {}) {
   return res.json();
 }
 
-// Meta daily data — campaign/adset/ad level with 1DC attribution
 app.get('/api/meta/daily', async (req, res) => {
   try {
     const { date_from, date_to, date_preset = 'this_monthT' } = req.query;
@@ -46,7 +53,6 @@ app.get('/api/meta/daily', async (req, res) => {
   }
 });
 
-// Meta hourly data
 app.get('/api/meta/hourly', async (req, res) => {
   try {
     const { date_from, date_to, date_preset = 'last_1dT' } = req.query;
@@ -62,7 +68,6 @@ app.get('/api/meta/hourly', async (req, res) => {
   }
 });
 
-// Google Ads — campaign level
 app.get('/api/google/campaigns', async (req, res) => {
   try {
     const { date_from, date_to, date_preset = 'this_monthT' } = req.query;
@@ -76,7 +81,6 @@ app.get('/api/google/campaigns', async (req, res) => {
   }
 });
 
-// GA4 — sessions + revenue by source/medium/campaign
 app.get('/api/ga4/daily', async (req, res) => {
   try {
     const { date_from, date_to, date_preset = 'this_monthT' } = req.query;
@@ -90,7 +94,6 @@ app.get('/api/ga4/daily', async (req, res) => {
   }
 });
 
-// Health check
 app.get('/health', (_, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
 const PORT = process.env.PORT || 3001;
