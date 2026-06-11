@@ -203,3 +203,20 @@ app.get('/health', (_, res) => res.json({ ok: true, ts: new Date().toISOString()
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => console.log(`Windsor proxy running on :${PORT}`))
+
+// ── Meta catalog (product-level) ──────────────────────────────────────────────
+
+app.get('/api/meta-catalog', async (req, res) => {
+  try {
+    const { date_from, date_to, preset = 'last_30d' } = req.query
+    const data = await windsorFetch('facebook', [
+      'date', 'ad_name', 'adset_name', 'campaign',
+      'product_id', 'product_name',
+      'spend', 'impressions', 'clicks',
+      'actions_purchase', 'action_values_purchase',
+      'actions_add_to_cart', 'actions_view_content',
+      'ctr', 'cpm', 'cpc',
+    ], { date_from, date_to, date_preset: preset, attribution_window: '1d_click' })
+    res.json({ ok: true, data: data.data || data })
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }) }
+})
