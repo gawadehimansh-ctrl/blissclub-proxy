@@ -1,21 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
-// API key auth — exempt /health for Railway health checks
-app.use((req, res, next) => {
-  if (req.path === '/health') return next();
-  const key = req.headers['x-api-key'];
-  if (!key || key !== process.env.BLISSCLUB_API_KEY) return res.status(403).json({ ok: false, error: 'Forbidden' });
-  next();
-});
-
 const WINDSOR_API_KEY = process.env.WINDSOR_API_KEY;
 const WINDSOR_BASE = 'https://connectors.windsor.ai/';
-
 const ACCOUNTS = {
   facebook: '584820145452956',
   google_ads: '858-197-3435',
@@ -27,11 +17,10 @@ async function windsorFetch(connector, fields, params = {}) {
   url.searchParams.set('api_key', WINDSOR_API_KEY);
   url.searchParams.set('fields', fields.join(','));
   url.searchParams.set('account_id', ACCOUNTS[connector]);
-  if (params.date_from) url.searchParams.set('date_from', params.date_from);
-  if (params.date_to) url.searchParams.set('date_to', params.date_to);
-  if (params.date_preset) url.searchParams.set('date_preset', params.date_preset);
-  if (params.attribution_window) url.searchParams.set('attribution_window', params.attribution_window);
-
+  if (params.date_from)           url.searchParams.set('date_from', params.date_from);
+  if (params.date_to)             url.searchParams.set('date_to', params.date_to);
+  if (params.date_preset)         url.searchParams.set('date_preset', params.date_preset);
+  if (params.attribution_window)  url.searchParams.set('attribution_window', params.attribution_window);
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`Windsor error: ${res.status} ${await res.text()}`);
   return res.json();
