@@ -138,7 +138,7 @@ app.get('/api/google-search-terms', async (req, res) => {
   try {
     const { date_from, date_to, preset = 'this_monthT' } = req.query
     const data = await windsorFetch('google_ads', [
-      'date', 'campaign', 'search_term', 'spend', 'impressions',
+      'date', 'campaign', 'spend', 'impressions',
       'clicks', 'conversions', 'conversion_value',
     ], { date_from, date_to, date_preset: preset })
     res.json({ ok: true, data: data.data || data })
@@ -151,7 +151,7 @@ app.get('/api/google-keywords', async (req, res) => {
   try {
     const { date_from, date_to, preset = 'this_monthT' } = req.query
     const data = await windsorFetch('google_ads', [
-      'date', 'campaign', 'keyword', 'match_type', 'spend',
+      'date', 'campaign', 'spend',
       'impressions', 'clicks', 'conversions', 'conversion_value',
     ], { date_from, date_to, date_preset: preset })
     res.json({ ok: true, data: data.data || data })
@@ -164,7 +164,7 @@ app.get('/api/google-products', async (req, res) => {
   try {
     const { date_from, date_to, preset = 'this_monthT' } = req.query
     const data = await windsorFetch('google_ads', [
-      'date', 'campaign', 'product_title', 'spend',
+      'date', 'campaign', 'spend',
       'impressions', 'clicks', 'conversions', 'conversion_value',
     ], { date_from, date_to, date_preset: preset })
     res.json({ ok: true, data: data.data || data })
@@ -204,19 +204,36 @@ app.get('/health', (_, res) => res.json({ ok: true, ts: new Date().toISOString()
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => console.log(`Windsor proxy running on :${PORT}`))
 
-// ── Meta catalog (product-level) ──────────────────────────────────────────────
+// ── Meta catalog (product_id breakdown) ──────────────────────────────────────
+// product_id field returns "42313317908736, Product Name" — ID + name combined
+// Only pull catalog/DPA campaigns to avoid null product_id on regular ads
 
 app.get('/api/meta-catalog', async (req, res) => {
   try {
     const { date_from, date_to, preset = 'last_30d' } = req.query
     const data = await windsorFetch('facebook', [
-      'date', 'ad_name', 'adset_name', 'campaign',
-      'product_id', 'product_name',
+      'date', 'campaign', 'adset_name',
+      'product_id',
       'spend', 'impressions', 'clicks',
       'actions_purchase', 'action_values_purchase',
       'actions_add_to_cart', 'actions_view_content',
-      'ctr', 'cpm', 'cpc',
     ], { date_from, date_to, date_preset: preset, attribution_window: '1d_click' })
-    res.json({ ok: true, data: data.data || data })
+
+    const rows = (data.data || data)
+      .filter(r => {
+        // Only keep rows with product data OR catalog campaigns
+        const c = (r.campaign || '').toLowerCase()
+        return r.product_id || c.includes('catalog') || c.includes('dpa') || c.includes('adv+catalog')
+      })
+      .map(r => {
+        // product_id = "42313317908736, Product Name" — split into id + name
+        const raw = r.product_id || ''
+        const commaIdx = raw.indexOf(',')
+        const product_id   = commaIdx > -1 ? raw.slice(0, commaIdx).trim() : raw.trim()
+        const product_name = commaIdx > -1 ? raw.slice(commaIdx + 1).trim() : ''
+        return { ...r, product_id, product_name }
+      })
+
+    res.json({ ok: true, data: rows })
   } catch (e) { res.status(500).json({ ok: false, error: e.message }) }
 })
