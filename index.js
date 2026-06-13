@@ -212,21 +212,16 @@ app.get('/api/meta-catalog', async (req, res) => {
   try {
     const { date_from, date_to, preset = 'last_30d' } = req.query
     const data = await windsorFetch('facebook', [
-      'date', 'campaign', 'adset_name',
-      'product_id',
-      'spend', 'impressions', 'clicks',
-      'actions_purchase', 'action_values_purchase',
-      'actions_add_to_cart', 'actions_view_content',
-    ], { date_from, date_to, date_preset: preset, attribution_window: '1d_click' })
+      'date', 'campaign', 'product_id',
+      'spend', 'action_values_purchase',
+    ], { date_from, date_to, date_preset: preset })
 
     const rows = (data.data || data)
       .filter(r => {
-        // Only keep rows with product data OR catalog campaigns
         const c = (r.campaign || '').toLowerCase()
         return r.product_id || c.includes('catalog') || c.includes('dpa') || c.includes('adv+catalog')
       })
       .map(r => {
-        // product_id = "42313317908736, Product Name" — split into id + name
         const raw = r.product_id || ''
         const commaIdx = raw.indexOf(',')
         const product_id   = commaIdx > -1 ? raw.slice(0, commaIdx).trim() : raw.trim()
